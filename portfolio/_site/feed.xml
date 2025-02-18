@@ -1,0 +1,642 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.4.0">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2025-02-12T14:46:47-05:00</updated><id>http://localhost:4000/feed.xml</id><entry><title type="html">Open Source Firewall</title><link href="http://localhost:4000/2025/01/10/Open-Source-Firewall.html" rel="alternate" type="text/html" title="Open Source Firewall" /><published>2025-01-10T00:00:00-05:00</published><updated>2025-02-09T00:58:52-05:00</updated><id>http://localhost:4000/2025/01/10/Open-Source-Firewall</id><content type="html" xml:base="http://localhost:4000/2025/01/10/Open-Source-Firewall.html"><![CDATA[<h1 id="open-source-firewall">Open Source Firewall</h1>
+
+<p><img src="/assets/img/portfolio/firewall/dashboard.png" alt="Network Diagram" /></p>
+
+<p>I set out to implement a robust firewall and routing solution for my home network, with the goal of enhancing security while expanding my networking skills. Additionally, I aimed to reduce the cost of monthly bills by replacing traditional cable with streaming services and eliminating rental fees for third-party network equipment. To achieve this, I deployed an OPNsense firewall alongside a dedicated wireless access point (WAP).</p>
+
+<p><a href="https://opnsense.org/about/about-opnsense/" target="_blank">OPNsense</a> is an open-source firewall and routing platform based on the FreeBSD operating system. As a fork of pfSense, it provides a modern, community-driven alternative with focus on network security. I chose OPNsense for its intuitive and polished, intuitive user interface, as well as  its fully open-source licensing model.</p>
+
+<h2 id="network-diagram">Network Diagram</h2>
+<p><img src="/assets/img/portfolio/firewall/SOHO.png" alt="Network Diagram" /></p>
+
+<h2 id="hardware">Hardware</h2>
+
+<p>To enhance security and optimize network performance, I implemented network segmentation using VLANs. This setup consists of four VLANs:</p>
+
+<p>VLAN 10 - Dedicated to network infrastructure, including switches, routers, and access points
+VLAN 20 - Allocated to servers such as the NAS and cluster server
+VLAN 30 - Reserved for end-user devices
+VLAN 40 - Isolated for IoT devices to enhance network security</p>
+
+<p>For the firewall, I chose the <a href="https://protectli.com/product/fw4b/" target="_blank">Protectli Vault FW4B</a>, a low power, fanless mini-pc with a large heatsink for passive cooling. It has 8gb RAM, 125gb SSD, a quad core intel cpu, and 4 gigabit ethernet ports, making it a reliable choice for running OPNsense.</p>
+
+<p>For wireless networking I deployed a <a href="https://webresources.ruckuswireless.com/datasheets/r610/ds-commscope-r610.html" target="_blank">Ruckus R610</a> access point, known for its innovative adaptive antenna technology, which dynamically optimizes Wi-Fi performance based on environmental factors. To simplify network expansion, I flashed the AP with the Ruckus Unleashed firmware, allowing one unit to act as the master, eliminating the need for a separate controller.</p>
+
+<p>The network backbone includes two managed switches. To leverage the existing coaxial infrastructure without running new CAT 6 wiring, I integrated some <a href="https://hackaday.com/2022/11/03/moca-networking-is-a-niche-solution-for-coax-lovers/" target="_blank">MoCA</a> 2.5 adapters.</p>
+
+<h2 id="switch-configuration">Switch configuration</h2>
+<p><img src="/assets/img/portfolio/firewall/switch_conf.png" alt="Switch Config" /></p>
+
+<p>On the switch, I configured 802.1q for VLAN tagging to properly segment network traffic. In my setup, I designated the ports connected to the firewall and AP as tagged (trunk) ports, Allowing them to carry traffic for multiple VLANs. Meanwhile, all other ports were configured as untagged (access) ports, each assigned to a specific VLAN. I also ensured that untagged traffic is passed to the MoCA adapter, which allows it to be sent to the second switch without requiring VLAN tagging on that link.
+The reason for this configuration is that the firewall and AP are VLAN-aware devices, meaning they can properly process tagged VLAN traffic. By keeping all other devices on untagged ports, I prevent potential issues with devices that do not support VLAN tagging.</p>
+
+<p>Additionally, I configured 802.1Q PVID (Port VLAN ID) on untagged ports. This ensures that any untagged traffic arriving at a port is automatically assigned to the correct VLAN, simplifying network management and maintaining proper VLAN segmentation.</p>
+
+<h2 id="ap-configuration">AP configuration</h2>
+
+<p><!--UPDATE THIS PHOTO --- <img src="/assets/img/portfolio/firewall/ruckus.png" alt="Ruckus Unleashed"> --></p>
+
+<p>The initial setup of the access point was relatively straightforward. I Created  two SSIDs: one for 5Ghz and another for 2.4Ghz. The 5Ghz SSID is designated for end-user devices and is mapped to VLAN 30, ensuring all connected clients are properly segmented. THe 2.4Ghz SSID is reserved for IoT devices and mapped to VLAN 40.</p>
+
+<p>During the setup, I encountered issues with DNS resolution and the gateway not functioning correctly. After reviewing my switch configuration, I was able to resolve the gateway issue. However, DNS remained non-functional until I implemented a firewall rule explicitly allowing DNS traffic. Once this rule was in place, the access point operated as expected.</p>
+
+<h2 id="firewall-configuration">Firewall Configuration</h2>
+<p><img src="/assets/img/portfolio/firewall/rules.png" alt="Firewall Rules" /></p>
+
+<p>On the OPNsense firewall, I configured all four VLANs and applied the appropriate firewall rules. Once these rules were implemented, the DHCP server began assigning IP addresses as expected. As noted earlier, I had to create a rule allowing DNS traffic for VLAN 10 to ensure the access point was functional.</p>
+
+<p>The VLAN setup process involved a fair amount of trial and error, particularly because I wasn’t initially sure which ports needed to be opened for certain services to work. For instance, there is a broad range of UDP ports required for certain VoIP services, which added complexity to the configuration. However, since only a few individuals are using the service, the scope of the configuration was manageable.</p>
+
+<p>Fortunately, OPNsense, like pfSense, makes use of aliases—a feature that significantly simplifies the creation of firewall rules. Aliases allow you to define multiple port ranges, devices, and protocols under a single reference. This feature streamlined my rule management, enabling me to apply specific rules to certain devices. To implement this, I created static IP mappings for the relevant devices, which was straightforward given the relatively small size of the network.</p>
+
+<h3 id="dns">DNS</h3>
+<p>For DNS resolution, I implemented a local recursive DNS resolver combined with a DNS sinkhole. All DNS requests are first directed to the sinkhole, where they are filtered before being forwarded upstream to the recursive resolver. This approach allows legitimate DNS requests to pass through while blocking domains associated with ads, trackers, and malicious content.</p>
+
+<p>For the DNS sinkhole, I chose <a href="https://github.com/AdguardTeam/AdGuardHome?tab=readme-ov-file#privacy-protection-center-for-you-and-your-devices" target="_blank">AdGuard Home</a>, an efficient tool for filtering and blocking unwanted content. As for the upstream recursive DNS resolver, I used Unbound DNS, which comes pre-installed with OPNsense. Unbound supports DNS over TLS (DoT), ensuring that DNS requests are encrypted to prevent eavesdropping and enhance privacy.</p>
+
+<p>To provide additional security and reliability for DNS resolution over DoT, I configured Cloudflare and Quad9 as my nameservers. This setup not only ensures the privacy of DNS queries but also improves the overall performance of domain lookups.</p>
+
+<h3 id="vpn">VPN</h3>
+
+<p><a href="https://www.paloaltonetworks.com/cyberpedia/what-is-wireguard" target="_blank">Wireguard</a>, which comes preinstalled with OPNsense, is a modern and efficient VPN protocol known for its speed, security, and minimal codebase. The simplicity of WireGuard makes it easier to audit and faster to run compared to other VPN protocols. To configure WireGuard, I only needed to set up the interfaces, generate the keys, and define the allowed IPs for routing.</p>
+
+<p>For my VPN gateway network, I selected 10.1.1.1/24, with subsequent clients receiving 10.1.1.x/32 addresses. I configured two WireGuard clients—one for my phone and another for my laptop—both of which can simultaneously establish tunnels to my firewall, ensuring secure internet access. Due to their unique IP addresses, I can apply custom firewall rules, such as granting one client access to specific resources (e.g., my servers), while keeping the other client more restricted.</p>
+
+<p>In addition to WireGuard, I set up Dynamic DNS (DDNS) to associate a domain name with my dynamic IP address. Home ISPs typically assign dynamic IP addresses that change regularly, making DDNS essential for remote access. To enable DDNS on OPNsense, I installed the necessary plugin. Since I already owned a domain name from a previous reverse proxy project, setting up DDNS was a seamless process.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This project has been both exciting and rewarding. It provided an excellent opportunity to apply everything I’ve learned about networking and security. While there was a significant amount of trial and error, the experience was incredibly valuable, and I gained a deeper understanding of network configuration, troubleshooting, and VPN setup.</p>]]></content><author><name></name></author><summary type="html"><![CDATA[Open Source Firewall]]></summary></entry><entry><title type="html">Network Cabinet</title><link href="http://localhost:4000/2024/10/02/Network-Cabinet.html" rel="alternate" type="text/html" title="Network Cabinet" /><published>2024-10-02T00:00:00-04:00</published><updated>2025-02-09T00:19:55-05:00</updated><id>http://localhost:4000/2024/10/02/Network-Cabinet</id><content type="html" xml:base="http://localhost:4000/2024/10/02/Network-Cabinet.html"><![CDATA[<h1 id="network-cabinet">Network Cabinet</h1>
+
+<p><img src="/assets/img/portfolio/NetworkCabinet/NetworkCabinet.JPG" alt="Network Cabinet" /></p>
+
+<p>As an Information Technology intern, one of my primary responsibilities is to support the network engineer in various tasks. For this specific project, we were assigned the implementation of a new network cabinet within an employee building. The project spanned approximately one week, during which I gained valuable insights into the organization’s network infrastructure and its deployment.</p>
+
+<h1 id="setting-up-the-network">Setting up the Network</h1>
+
+<p>This project involved the installation of CAT 6 Ethernet cables, terminating them with RJ45 connectors, and routing them to a patch panel. Patch panels are essential components in network infrastructure, providing an organized means for labeling and connecting network cables to various network devices. The patch panel utilized in this project was a keystone-style panel, meaning the individual ports are unoccupied and require Ethernet cables to be terminated into keystone jacks before being inserted into the panel. Terminating Ethernet cables onto a keystone jack is a straightforward process. Following the TIA/EIA-568-B standard, which is the established wiring standard within our organization, we performed the punch-down procedure on each jack. The terminated cables were then routed to a network switch, which was connected to the LAN port of the firewall device.</p>
+
+<h1 id="challenges-and-troubleshooting">Challenges and Troubleshooting</h1>
+
+<p>While the building was already pre-wired with CAT 6 cabling, the previous network engineer had not properly organized the ports. As a result, when we began installing the new network cabinet, we encountered numerous cables that were either not terminated, inconsistently labeled, or completely unlabeled. My colleague and I spent a significant amount of time tracing the Ethernet cables to identify their destinations and determine their functionality. After identifying key ports—such as those for access points (AP), office spaces, and common areas—we terminated them onto keystone jacks and installed them into the patch panel. Towards the end of the installation, we encountered a network loop, which presented a significant challenge. To resolve the issue, we systematically tested each port to trace the origin of the loop. After careful troubleshooting, we identified and removed the faulty cable causing the loop, which restored normal network functionality.</p>
+
+<h1 id="lessons-learned">Lessons Learned</h1>
+
+<p>This project provided valuable insights into the fundamentals of network security by allowing me to observe firsthand how network devices operate and how traffic is filtered through firewalls. Troubleshooting the network loop involved systematically identifying and eliminating potential failure points, a process that mirrors how vulnerabilities and misconfigurations are identified and mitigated in cybersecurity. I also gained an understanding of the critical role that proper documentation and labeling play in maintaining network infrastructure within an organization. The skills acquired during this experience have enabled me to contribute to additional projects alongside the network engineer. Moreover, my exposure to networking has not only deepened my appreciation for the work engineers perform but also strengthened my aspiration to secure networks and information systems.</p>]]></content><author><name></name></author><summary type="html"><![CDATA[Network Cabinet]]></summary></entry><entry><title type="html">Cluster Server</title><link href="http://localhost:4000/2024/05/25/Cluster-Server.html" rel="alternate" type="text/html" title="Cluster Server" /><published>2024-05-25T00:00:00-04:00</published><updated>2025-02-09T01:28:13-05:00</updated><id>http://localhost:4000/2024/05/25/Cluster-Server</id><content type="html" xml:base="http://localhost:4000/2024/05/25/Cluster-Server.html"><![CDATA[<h1 id="cluster-server">Cluster Server</h1>
+
+<p><img src="/assets/img/portfolio/cluster/Cluster.png" alt="Cluster Server" /></p>
+
+<p>In information technology, redundancy is crucial for ensuring system reliability. By eliminating single points of failure, it enhances overall system stability. We’ve all experienced the frustration of trying to access an unavailable system—especially when it’s needed most. For large organizations, unexpected downtime can result in significant financial and operational consequences.
+For this project, I set out to gain hands-on experience in building highly available systems on a smaller scale. Using Docker Swarm and a cluster of Raspberry Pis, I created a highly available server to explore the principles of redundancy and fault tolerance.</p>
+
+<h2 id="why-docker-swarm">Why Docker Swarm</h2>
+
+<p>Previously, I used my Raspberry Pi to run Docker containers, including Pi-hole [(LINK TO PIHOLE)]. While researching highly available container orchestration solutions, I explored both Docker Swarm and Kubernetes. Kubernetes, with its complexity and extensive customization options, is well-suited for large, intricate systems. However, for my use case, it felt like overkill. Instead, I opted for Docker Swarm due to its simplicity and ease of use, making it a better fit for small-scale environments.</p>
+
+<h2 id="hardware">Hardware</h2>
+
+<p>Having a history of tinkering with Raspberry Pis, I decided to use them for my cluster. I already owned three, so I only needed to purchase one more to complete the setup. Raspberry Pis are low-power devices, making them ideal for always-on systems, especially when handling lightweight workloads. Another reason for choosing the Raspberry Pi is its strong community of enthusiasts, who provide a wealth of resources and support.
+For my cluster, I used this case [(LINK TO RPI CASE)], which offers ample space for proper ventilation. To enable communication between the systems, they needed to be connected through a switch, so I used a 4-port switch for the setup.</p>
+
+<h2 id="system-setup">System Setup</h2>
+
+<p>One of the most satisfying parts of this project was assembling the system. I wanted a setup where a single power connection would bring everything online seamlessly. To achieve this, I used a 65W power supply and USB power cables for the Raspberry Pis.
+Ethernet switches typically come with a standard socket plug, but since I wanted to power the entire system from a single source, I modified the switch’s power connection. I cut off the socket plug from its 5V power cable and soldered it to a USB port, allowing me to power the switch via a power bank. This way, the entire cluster required only one cable from the power bank to stay operational.
+For the operating system, I chose Raspberry Pi OS, which is based on Debian Linux. It is reliable, open-source, and well-optimized for Raspberry Pi hardware. I also used SD cards as the primary storage, as they can last for years before needing replacement.</p>
+
+<h2 id="setting-up-docker-swarm">Setting up Docker Swarm</h2>
+
+<p>This was by far the easiest part of the project, as the initial setup required only two commands.</p>
+
+<p>On the master node, we run:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker swarm init
+</code></pre></div></div>
+
+<p>After running this we are given a token that allows us to add other nodes.</p>
+
+<p>On the other nodes we run:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker swarm join --token &lt;token&gt; &lt;manager_node_ip&gt;:2377
+</code></pre></div></div>
+
+<p>With just these commands, the cluster is up and running.</p>
+
+<h2 id="security">Security</h2>
+
+<p>Cybersecurity is a multifaceted endeavor—securing a system requires vigilance at every level. The best approach depends on the system’s specific implementation, with various strategies to consider. Below are some of the key security configurations I implemented for the Raspberry Pi system.</p>
+
+<h3 id="require-root-password">Require Root Password</h3>
+
+<p>When I first configured a Raspberry Pi system, I was surprised to find that it does not require a root password for sudo commands. As security practitioners, we recognize this as a significant security risk—any user with access to the system can easily escalate their privileges. Since the Raspberry Pi is designed to be beginner-friendly, I assume this decision was made to simplify usability.
+However, for security reasons, I changed this default behavior. To do so, I modified the sudoers configuration by navigating to the /etc/sudoers.d directory and changing the line:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pi ALL=(ALL) NOPASSWD: ALL 
+</code></pre></div></div>
+<p>To</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pi ALL=(ALL) ALL
+</code></pre></div></div>
+
+<h3 id="ssh-config">SSH Config</h3>
+
+<p>The next change I made was to the sshd_config file, as SSH is my primary method of connecting to these systems. To enhance security, I enabled key-based authentication, which is generally more secure than password-based access.
+I also changed the default SSH listening port. While I don’t expose SSH ports to the internet—since doing so invites unnecessary automated attacks—I still take this precaution on any system where SSH is enabled. Instead of exposing SSH directly, I use a VPN tunnel to establish a secure connection to the system.</p>
+
+<h3 id="sysctlconf">Sysctl.conf</h3>
+
+<p>Whenever I configure a Linux server, I always review the /etc/sysctl.conf file, which contains kernel and networking parameters. Some of the key changes I made include disabling IPv6, disabling ICMP echo and broadcasts, enabling tcp_syncookies to mitigate SYN flood DDoS attacks, and applying several other security and performance optimizations.
+This file offers a wide range of configurable options, allowing for fine-tuned adjustments to enhance both security and system performance.</p>
+
+<h2 id="nfs-server">NFS Server</h2>
+
+<p>To share configuration files across all nodes in the cluster, I decided to implement a Network File System (NFS) server. NFS is a protocol that enables file sharing between computers, similar to the SMB protocol in Windows. In this setup, the NFS server is hosted on the second node.
+I also utilized AutoFS, a program that automatically mounts file systems when accessed and can be configured to unmount them after a specified period of inactivity. This feature helps mitigate potential issues related to improper mounting of the file system.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This project has been an invaluable learning experience. It has allowed me to deepen my understanding of high availability systems, redundancy, and fault tolerance. The simplicity of Docker Swarm suited my small-scale environment perfectly, while the Raspberry Pi provided an accessible and powerful platform for experimentation. Moving forward, I feel more confident in applying these principles to larger, more complex systems, andI look forward to expanding the number of services I will run on the cluster.</p>]]></content><author><name></name></author><summary type="html"><![CDATA[Cluster Server In information technology, redundancy is crucial for ensuring system reliability. By eliminating single points of failure, it enhances overall system stability. We’ve all experienced the frustration of trying to access an unavailable system—especially when it’s needed most. For large organizations, unexpected downtime can result in significant financial and operational consequences. For this project, I set out to gain hands-on experience in building highly available systems on a smaller scale. Using Docker Swarm and a cluster of Raspberry Pis, I created a highly available server to explore the principles of redundancy and fault tolerance. Why Docker Swarm Previously, I used my Raspberry Pi to run Docker containers, including Pi-hole [(LINK TO PIHOLE)]. While researching highly available container orchestration solutions, I explored both Docker Swarm and Kubernetes. Kubernetes, with its complexity and extensive customization options, is well-suited for large, intricate systems. However, for my use case, it felt like overkill. Instead, I opted for Docker Swarm due to its simplicity and ease of use, making it a better fit for small-scale environments. Hardware Having a history of tinkering with Raspberry Pis, I decided to use them for my cluster. I already owned three, so I only needed to purchase one more to complete the setup. Raspberry Pis are low-power devices, making them ideal for always-on systems, especially when handling lightweight workloads. Another reason for choosing the Raspberry Pi is its strong community of enthusiasts, who provide a wealth of resources and support. For my cluster, I used this case [(LINK TO RPI CASE)], which offers ample space for proper ventilation. To enable communication between the systems, they needed to be connected through a switch, so I used a 4-port switch for the setup. System Setup One of the most satisfying parts of this project was assembling the system. I wanted a setup where a single power connection would bring everything online seamlessly. To achieve this, I used a 65W power supply and USB power cables for the Raspberry Pis. Ethernet switches typically come with a standard socket plug, but since I wanted to power the entire system from a single source, I modified the switch’s power connection. I cut off the socket plug from its 5V power cable and soldered it to a USB port, allowing me to power the switch via a power bank. This way, the entire cluster required only one cable from the power bank to stay operational. For the operating system, I chose Raspberry Pi OS, which is based on Debian Linux. It is reliable, open-source, and well-optimized for Raspberry Pi hardware. I also used SD cards as the primary storage, as they can last for years before needing replacement. Setting up Docker Swarm This was by far the easiest part of the project, as the initial setup required only two commands. On the master node, we run: docker swarm init After running this we are given a token that allows us to add other nodes. On the other nodes we run: docker swarm join --token &lt;token&gt; &lt;manager_node_ip&gt;:2377 With just these commands, the cluster is up and running. Security Cybersecurity is a multifaceted endeavor—securing a system requires vigilance at every level. The best approach depends on the system’s specific implementation, with various strategies to consider. Below are some of the key security configurations I implemented for the Raspberry Pi system. Require Root Password When I first configured a Raspberry Pi system, I was surprised to find that it does not require a root password for sudo commands. As security practitioners, we recognize this as a significant security risk—any user with access to the system can easily escalate their privileges. Since the Raspberry Pi is designed to be beginner-friendly, I assume this decision was made to simplify usability. However, for security reasons, I changed this default behavior. To do so, I modified the sudoers configuration by navigating to the /etc/sudoers.d directory and changing the line: pi ALL=(ALL) NOPASSWD: ALL To pi ALL=(ALL) ALL SSH Config The next change I made was to the sshd_config file, as SSH is my primary method of connecting to these systems. To enhance security, I enabled key-based authentication, which is generally more secure than password-based access. I also changed the default SSH listening port. While I don’t expose SSH ports to the internet—since doing so invites unnecessary automated attacks—I still take this precaution on any system where SSH is enabled. Instead of exposing SSH directly, I use a VPN tunnel to establish a secure connection to the system. Sysctl.conf Whenever I configure a Linux server, I always review the /etc/sysctl.conf file, which contains kernel and networking parameters. Some of the key changes I made include disabling IPv6, disabling ICMP echo and broadcasts, enabling tcp_syncookies to mitigate SYN flood DDoS attacks, and applying several other security and performance optimizations. This file offers a wide range of configurable options, allowing for fine-tuned adjustments to enhance both security and system performance. NFS Server To share configuration files across all nodes in the cluster, I decided to implement a Network File System (NFS) server. NFS is a protocol that enables file sharing between computers, similar to the SMB protocol in Windows. In this setup, the NFS server is hosted on the second node. I also utilized AutoFS, a program that automatically mounts file systems when accessed and can be configured to unmount them after a specified period of inactivity. This feature helps mitigate potential issues related to improper mounting of the file system. Conclusion This project has been an invaluable learning experience. It has allowed me to deepen my understanding of high availability systems, redundancy, and fault tolerance. The simplicity of Docker Swarm suited my small-scale environment perfectly, while the Raspberry Pi provided an accessible and powerful platform for experimentation. Moving forward, I feel more confident in applying these principles to larger, more complex systems, andI look forward to expanding the number of services I will run on the cluster.]]></summary></entry><entry><title type="html">Reverse Proxy</title><link href="http://localhost:4000/2023/11/07/Reverse-Proxy.html" rel="alternate" type="text/html" title="Reverse Proxy" /><published>2023-11-07T00:00:00-05:00</published><updated>2025-02-02T00:03:24-05:00</updated><id>http://localhost:4000/2023/11/07/Reverse-Proxy</id><content type="html" xml:base="http://localhost:4000/2023/11/07/Reverse-Proxy.html"><![CDATA[<h1 id="reverse-proxy">Reverse Proxy</h1>
+
+<p>Installed and configured traefik, opensource reverse proxy and load balancer.</p>]]></content><author><name></name></author><summary type="html"><![CDATA[Reverse Proxy Installed and configured traefik, opensource reverse proxy and load balancer.]]></summary></entry><entry><title type="html">Video Surveillance Security System</title><link href="http://localhost:4000/2022/05/01/Video-Surveillance-Security-System.html" rel="alternate" type="text/html" title="Video Surveillance Security System" /><published>2022-05-01T00:00:00-04:00</published><updated>2025-02-07T03:02:19-05:00</updated><id>http://localhost:4000/2022/05/01/Video-Surveillance-Security-System</id><content type="html" xml:base="http://localhost:4000/2022/05/01/Video-Surveillance-Security-System.html"><![CDATA[<p><img src="/assets/img/portfolio/camera_system/screen.jpg" alt="NVR Display" /></p>
+
+<h1 id="video-surveillance-security-system">Video Surveillance Security System</h1>
+
+<p>A friend of mine requested my assistance in implementing a video surveillance system at a client’s residence. We have prior experience with installing surveillance cameras in residential settings where we have utilized both Wireless and Ethernet-based cameras. This background allowed us to leverage our prior knowledge in this security system implementation.</p>
+
+<h2 id="equipment">Equipment</h2>
+
+<p>For this installation, we utilized a system consisting of eight Power over Ethernet (PoE) cameras, paired with a Network Video Recorder (NVR). Our first task was to run a network cable from the router, which was located in the attic. This required drilling access holes in the ceiling to ensure a clean and secure cable route.</p>
+
+<h2 id="planning-and-installation">Planning and installation</h2>
+
+<p>The client provided specific areas of the house where he wanted the cameras to be positioned. This allowed us to carefully plan the optimal camera placements. A significant portion of the project involved running the network cables to the designated camera locations. To ensure the wires remained hidden, we strategically tucked them into various sections of the house.
+The client also requested that we install some cameras to an area detached from the main house. In order for us to get cameras out to the detached site, we ran the network cable underground through conduit piping. This was done to protect the cables from exposure to weather conditions while maintaining organization and ensuring the wires could be easily accessed and removed if necessary.</p>
+
+<p><img src="/assets/img/portfolio/camera_system/camera.jpg" alt="Camera" /></p>
+
+<h2 id="nvr-setup">NVR Setup</h2>
+
+<p>Setting up the NVR was straightforward, and it included an app that allowed remote viewing from any location. Given that the client is not very tech-savvy, we decided to offer complimentary technical support for the camera system to ensure they would be able to fully utilize the system without difficulty.</p>
+
+<h2 id="reflection">Reflection</h2>
+
+<p>This experience reinforced my understanding that cybersecurity isnt’ just about defending digital assets. It’s also about securing the physical infrastructure that supports those assets. This project has deepened my appreciation for the interconnectedness of physical and cyber protection.</p>]]></content><author><name></name></author><summary type="html"><![CDATA[]]></summary></entry><entry><title type="html">Introducing Hydejack 9</title><link href="http://localhost:4000/2020/07/03/introducing-hydejack-9.html" rel="alternate" type="text/html" title="Introducing Hydejack 9" /><published>2020-07-03T00:00:00-04:00</published><updated>2025-01-28T20:44:37-05:00</updated><id>http://localhost:4000/2020/07/03/introducing-hydejack-9</id><content type="html" xml:base="http://localhost:4000/2020/07/03/introducing-hydejack-9.html"><![CDATA[<p class="lead">Version 9 is the most complete version of Hydejack yet.</p>
+
+<p><a href="#linking-in-style">Modernized</a> <a href="#whats-in-the-cards">design</a>, <a href="#ready-for-the-big-screen">big headlines</a>, big new features: <a href="#built-in-search">Built-In Search</a>, <a href="#sticky-table-of-contents">Sticky Table of Contents</a>, and <a href="#auto-hiding-navbar">Auto-Hiding Navbar</a>. That <a href="#and-much-more">and more</a> is Hydejack 9.</p>
+
+<ul class="large-only" id="markdown-toc">
+  <li><a href="#linking-in-style" id="markdown-toc-linking-in-style">Linking in Style</a></li>
+  <li><a href="#ready-for-the-big-screen" id="markdown-toc-ready-for-the-big-screen">Ready for the Big Screen</a></li>
+  <li><a href="#whats-in-the-cards" id="markdown-toc-whats-in-the-cards">What’s in the Cards?</a></li>
+  <li><a href="#built-in-search" id="markdown-toc-built-in-search">Built-In Search</a></li>
+  <li><a href="#auto-hiding-navbar" id="markdown-toc-auto-hiding-navbar">Auto-Hiding Navbar</a></li>
+  <li><a href="#sticky-table-of-contents" id="markdown-toc-sticky-table-of-contents">Sticky Table of Contents</a></li>
+  <li><a href="#and-much-more" id="markdown-toc-and-much-more">…and much more</a></li>
+  <li><a href="#even-more-to-come" id="markdown-toc-even-more-to-come">Even More to Come</a></li>
+  <li><a href="#get-it-now" id="markdown-toc-get-it-now">Get It Now</a></li>
+</ul>
+
+<h2 id="linking-in-style">Linking in Style</h2>
+
+<p>Ever since the introduction of Dark Mode, link styles have been a bit of an issue. Specifically, finding an accent color that worked on both light and dark backgrounds was the problem. With Hydejack 9, the <a href="#linking-in-style">link style</a> has been revamped so that legibility is no longer tied to the choice of accent_color, giving you much more freedom in creating a unique design flavor for your site.</p>
+
+<h2 id="ready-for-the-big-screen">Ready for the Big Screen</h2>
+
+<p>The theme on which Hydejack is based was designed for a different era of the web. Hydejack has inherited many of its limitations, but over time I’ve made adjustments, such as centering the content column for better reading ergonomics.</p>
+
+<p>With version 9, Hydejack takes full advantage of large displays. Whether it’s design indulgences such as oversized headlines, or quality of life improvements such as a floating table of contents, Hydejack now finds use for all that extra screen real estate<sup id="fnref:1"><a href="#fn:1" class="footnote" rel="footnote" role="doc-noteref">1</a></sup>.</p>
+
+<h2 id="whats-in-the-cards">What’s in the Cards?</h2>
+
+<p>Hydejack 9 now lets you use content cards for both projects and posts. 
+The cards have been redesigned with a new hover style and drop shadows and they retain their unique transition-to-next-page animations, which now also work on the <code class="language-plaintext highlighter-rouge">blog</code> layout. The new <code class="language-plaintext highlighter-rouge">grid</code> layout lets you do that.</p>
+
+<p>Good images are key to making the most out of content cards. For that reason, a <a href="../../docs/basics.md#adding-images">chapter on images</a> has been added to the documentation.</p>
+
+<h2 id="built-in-search">Built-In Search</h2>
+
+<p>Hydejack now has Built-In Search. It even works offline. I’ve been prototyping many approaches and eventually settled on a fully client-side, off-the-main thread solution that perfectly fits the use case of personal sites and shows surprisingly good results<sup id="fnref:2"><a href="#fn:2" class="footnote" rel="footnote" role="doc-noteref">2</a></sup>.</p>
+
+<p>The new search UI is custom made for Hydejack and shows beautiful previews of your posts and pages, right on top of your regular content.</p>
+
+<p>Together with the Auto-Hiding Navbar, your entire content library is now only a couple of keystrokes away.</p>
+
+<h2 id="auto-hiding-navbar">Auto-Hiding Navbar</h2>
+
+<p>A navbar that’s there when you need it, and disappears when you don’t. Simple as that.</p>
+
+<h2 id="sticky-table-of-contents">Sticky Table of Contents</h2>
+
+<p>Already a staple on so many sites on the web, this pattern is now also available in Hydejack. 
+What’s unique about it is that it simply picks up the table of contents already created by kramdown’s <code class="language-plaintext highlighter-rouge">{:toc}</code> tag and transparently upgrades it to a fully dynamic version.</p>
+
+<h2 id="and-much-more">…and much more</h2>
+
+<p>Other noteworthy changes include:</p>
+<ul>
+  <li>Support for Jekyll 4</li>
+  <li>Choice between MathJax and KaTeX for math rendering</li>
+  <li>Use of <code class="language-plaintext highlighter-rouge">jekyll-include-cache</code> for drastically improved page building speeds</li>
+  <li>New variables configuration file — adjust content width, sidebar width, font size, etc…</li>
+  <li>…and the option to disable grouping projects by year.</li>
+</ul>
+
+<p>Read the the <a href="../../CHANGELOG.md" class="heading flip-title">CHANGELOG</a> for the full scope of features and improvements made in Hydejack 9.
+Maybe just glance at it to confirm that it is indeed a pretty long list.</p>
+
+<h2 id="even-more-to-come">Even More to Come</h2>
+
+<p>New features for 9.1 are already lined up. Code block headers and code line highlights for even better technical blogging, as well as download buttons on the resume page for PDF, vCard, and Resume JSON are just around the corner.</p>
+
+<h2 id="get-it-now">Get It Now</h2>
+<p>The Free Version of Hydejack is now availabe on <a href="https://rubygems.org/gems/jekyll-theme-hydejack">RubyGems</a>
+and for the first time also on <a href="https://github.com/hydecorp/hydejack/packages">GitHub Packages</a>. 
+The source code is available on <a href="https://github.com/hydecorp/hydejack">GitHub</a> as always.</p>
+
+<p>The PRO Version is scheduled to release on July 7th on Gumroad. Pre-Orders are open now:</p>
+
+<div class="gumroad-product-embed" data-gumroad-product-id="nuOluY"><a href="https://gumroad.com/l/nuOluY">Loading…</a></div>
+
+<div class="footnotes" role="doc-endnotes">
+  <ol>
+    <li id="fn:1">
+      <p>If you are a fan of the old two-column layout, or don’t like modern design tropes such as mega headlines, Hydejack lets you revert these changes on a case-by-case basis via configuration options. <a href="#fnref:1" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+    <li id="fn:2">
+
+      <p>Search was mainly tested for English and German. Please let me know about issues in other languages. 
+  While I’ve tried to find a multi-language solution, most showed drastically worse  results for the English base case.
+  If you’re technically inclined, you can adopt the code located in <code class="language-plaintext highlighter-rouge">_includes/js/search-worker.js</code> to your needs. <a href="#fnref:2" class="reversefootnote" role="doc-backlink">&#8617;</a></p>
+    </li>
+  </ol>
+</div>]]></content><author><name></name></author><summary type="html"><![CDATA[Version 9 is the most complete version of Hydejack yet. Modernized design, big headlines, and big new features.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="http://localhost:4000/assets/img/blog/jeremy-bishop@0,5x.jpg" /><media:content medium="image" url="http://localhost:4000/assets/img/blog/jeremy-bishop@0,5x.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Example Content III</title><link href="http://localhost:4000/2018/06/01/example-content-iii.html" rel="alternate" type="text/html" title="Example Content III" /><published>2018-06-01T00:00:00-04:00</published><updated>2025-01-28T20:44:37-05:00</updated><id>http://localhost:4000/2018/06/01/example-content-iii</id><content type="html" xml:base="http://localhost:4000/2018/06/01/example-content-iii.html"><![CDATA[<p>Hydejack offers a few additional features to markup your markdown.
+Don’t worry, these are merely CSS classes added with kramdown’s <code class="language-plaintext highlighter-rouge">{:...}</code> syntax,
+so that your content remains compatible with other Jekyll themes.</p>
+
+<h2 id="large-tables">Large Tables</h2>
+
+<table class="scroll-table">
+  <thead>
+    <tr>
+      <th>Default aligned</th>
+      <th style="text-align: left">Left aligned</th>
+      <th style="text-align: center">Center aligned</th>
+      <th style="text-align: right">Right aligned</th>
+      <th>Default aligned</th>
+      <th style="text-align: left">Left aligned</th>
+      <th style="text-align: center">Center aligned</th>
+      <th style="text-align: right">Right aligned</th>
+      <th>Default aligned</th>
+      <th style="text-align: left">Left aligned</th>
+      <th style="text-align: center">Center aligned</th>
+      <th style="text-align: right">Right aligned</th>
+      <th>Default aligned</th>
+      <th style="text-align: left">Left aligned</th>
+      <th style="text-align: center">Center aligned</th>
+      <th style="text-align: right">Right aligned</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>First body part</td>
+      <td style="text-align: left">Second cell</td>
+      <td style="text-align: center">Third cell</td>
+      <td style="text-align: right">fourth cell</td>
+      <td>First body part</td>
+      <td style="text-align: left">Second cell</td>
+      <td style="text-align: center">Third cell</td>
+      <td style="text-align: right">fourth cell</td>
+      <td>First body part</td>
+      <td style="text-align: left">Second cell</td>
+      <td style="text-align: center">Third cell</td>
+      <td style="text-align: right">fourth cell</td>
+      <td>First body part</td>
+      <td style="text-align: left">Second cell</td>
+      <td style="text-align: center">Third cell</td>
+      <td style="text-align: right">fourth cell</td>
+    </tr>
+    <tr>
+      <td>Second line</td>
+      <td style="text-align: left">foo</td>
+      <td style="text-align: center"><strong>strong</strong></td>
+      <td style="text-align: right">baz</td>
+      <td>Second line</td>
+      <td style="text-align: left">foo</td>
+      <td style="text-align: center"><strong>strong</strong></td>
+      <td style="text-align: right">baz</td>
+      <td>Second line</td>
+      <td style="text-align: left">foo</td>
+      <td style="text-align: center"><strong>strong</strong></td>
+      <td style="text-align: right">baz</td>
+      <td>Second line</td>
+      <td style="text-align: left">foo</td>
+      <td style="text-align: center"><strong>strong</strong></td>
+      <td style="text-align: right">baz</td>
+    </tr>
+    <tr>
+      <td>Third line</td>
+      <td style="text-align: left">quux</td>
+      <td style="text-align: center">baz</td>
+      <td style="text-align: right">bar</td>
+      <td>Third line</td>
+      <td style="text-align: left">quux</td>
+      <td style="text-align: center">baz</td>
+      <td style="text-align: right">bar</td>
+      <td>Third line</td>
+      <td style="text-align: left">quux</td>
+      <td style="text-align: center">baz</td>
+      <td style="text-align: right">bar</td>
+      <td>Third line</td>
+      <td style="text-align: left">quux</td>
+      <td style="text-align: center">baz</td>
+      <td style="text-align: right">bar</td>
+    </tr>
+    <tr>
+      <td>Second body</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>Second body</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>Second body</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>Second body</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+    </tr>
+    <tr>
+      <td>2 line</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>2 line</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>2 line</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>2 line</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+    </tr>
+    <tr>
+      <td>Footer row</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>Footer row</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>Footer row</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+      <td>Footer row</td>
+      <td style="text-align: left"> </td>
+      <td style="text-align: center"> </td>
+      <td style="text-align: right"> </td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="code-blocks">Code blocks</h2>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Example can be run directly in your JavaScript console</span>
+
+<span class="c1">// Create a function that takes two arguments and returns the sum of those</span>
+<span class="c1">// arguments</span>
+<span class="kd">var</span> <span class="nx">adder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Function</span><span class="p">(</span><span class="dl">"</span><span class="s2">a</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">b</span><span class="dl">"</span><span class="p">,</span> <span class="dl">"</span><span class="s2">return a + b</span><span class="dl">"</span><span class="p">);</span>
+
+<span class="c1">// Call the function</span>
+<span class="nf">adder</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">);</span>
+<span class="c1">// &gt; 8</span>
+</code></pre></div></div>
+
+<h2 id="math">Math</h2>
+<p>Lorem ipsum \(f(x) = x^2\).</p>
+
+\[\begin{aligned}
+  \phi(x,y) &amp;= \phi \left(\sum_{i=1}^n x_ie_i, \sum_{j=1}^n y_je_j \right) \\[2em]
+            &amp;= \sum_{i=1}^n \sum_{j=1}^n x_i y_j \phi(e_i, e_j)            \\[2em]
+            &amp;= (x_1, \ldots, x_n)
+               \left(\begin{array}{ccc}
+                 \phi(e_1, e_1)  &amp; \cdots &amp; \phi(e_1, e_n) \\
+                 \vdots          &amp; \ddots &amp; \vdots         \\
+                 \phi(e_n, e_1)  &amp; \cdots &amp; \phi(e_n, e_n)
+               \end{array}\right)
+               \left(\begin{array}{c}
+                 y_1    \\
+                 \vdots \\
+                 y_n
+               \end{array}\right)
+\end{aligned}\]
+
+<h2 id="message-boxes">Message boxes</h2>
+<p class="message"><strong>NOTE</strong>: You can add a message box.</p>
+
+<h2 id="large-text">Large text</h2>
+<p class="lead">You can add large text.</p>
+
+<h2 id="large-images">Large images</h2>
+<p><img src="https://via.placeholder.com/800x100" alt="Full-width image" class="lead" width="800" height="100" /></p>
+
+<h2 id="captions-to-images">Captions to images</h2>
+<p class="figure"><img src="https://via.placeholder.com/800x100" alt="Full-width image" class="lead" width="800" height="100" />
+A caption to an image.</p>
+
+<h2 id="large-quotes">Large quotes</h2>
+<blockquote class="lead">
+  <p>You can make a quote “pop out”.</p>
+</blockquote>
+
+<h2 id="faded-text">Faded text</h2>
+<p class="faded">I’m faded, faded, faded.</p>]]></content><author><name></name></author><summary type="html"><![CDATA[A page showing Hydejack-specific markdown content.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="http://localhost:4000/assets/img/blog/example-content-iii.jpg" /><media:content medium="image" url="http://localhost:4000/assets/img/blog/example-content-iii.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Example Content II</title><link href="http://localhost:4000/2017/11/23/example-content-ii.html" rel="alternate" type="text/html" title="Example Content II" /><published>2017-11-23T00:00:00-05:00</published><updated>2025-01-28T20:44:37-05:00</updated><id>http://localhost:4000/2017/11/23/example-content-ii</id><content type="html" xml:base="http://localhost:4000/2017/11/23/example-content-ii.html"><![CDATA[<p>There should be whitespace between paragraphs. We recommend including a README, or a file with information about your project.</p>
+
+<p>There should be whitespace between paragraphs.</p>
+
+<p>Text can be <strong>bold</strong>, <em>italic</em>, or <del>strikethrough</del>.</p>
+
+<p><a href="another-page">Link to another page</a>.</p>
+
+<ul class="large-only" id="markdown-toc">
+  <li><a href="#header-2" id="markdown-toc-header-2">Header 2</a>    <ul>
+      <li><a href="#header-3" id="markdown-toc-header-3">Header 3</a>        <ul>
+          <li><a href="#header-4" id="markdown-toc-header-4">Header 4</a>            <ul>
+              <li><a href="#header-5" id="markdown-toc-header-5">Header 5</a>                <ul>
+                  <li><a href="#header-6" id="markdown-toc-header-6">Header 6</a></li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li><a href="#theres-a-horizontal-rule-below-this" id="markdown-toc-theres-a-horizontal-rule-below-this">There’s a horizontal rule below this.</a></li>
+      <li><a href="#here-is-an-unordered-list" id="markdown-toc-here-is-an-unordered-list">Here is an unordered list:</a></li>
+      <li><a href="#and-an-ordered-list" id="markdown-toc-and-an-ordered-list">And an ordered list:</a></li>
+      <li><a href="#and-a-nested-list" id="markdown-toc-and-a-nested-list">And a nested list:</a></li>
+      <li><a href="#small-image" id="markdown-toc-small-image">Small image</a></li>
+      <li><a href="#large-image" id="markdown-toc-large-image">Large image</a></li>
+      <li><a href="#definition-lists" id="markdown-toc-definition-lists">Definition lists</a></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="header-2">Header 2</h2>
+
+<p>This is a normal paragraph following a header. GitHub is a code hosting platform for version control and collaboration. It lets you and others work together on projects from anywhere.</p>
+
+<h3 id="header-3">Header 3</h3>
+
+<blockquote>
+  <p>This is a blockquote following a header.</p>
+
+  <p>When something is important enough, you do it even if the odds are not in your favor.</p>
+</blockquote>
+
+<div class="language-js highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Javascript code with syntax highlighting.</span>
+<span class="kd">var</span> <span class="nx">fun</span> <span class="o">=</span> <span class="kd">function</span> <span class="nf">lang</span><span class="p">(</span><span class="nx">l</span><span class="p">)</span> <span class="p">{</span>
+  <span class="nx">dateformat</span><span class="p">.</span><span class="nx">i18n</span> <span class="o">=</span> <span class="nf">require</span><span class="p">(</span><span class="dl">'</span><span class="s1">./lang/</span><span class="dl">'</span> <span class="o">+</span> <span class="nx">l</span><span class="p">)</span>
+  <span class="k">return</span> <span class="kc">true</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># Ruby code with syntax highlighting</span>
+<span class="no">GitHubPages</span><span class="o">::</span><span class="no">Dependencies</span><span class="p">.</span><span class="nf">gems</span><span class="p">.</span><span class="nf">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">gem</span><span class="p">,</span> <span class="n">version</span><span class="o">|</span>
+  <span class="n">s</span><span class="p">.</span><span class="nf">add_dependency</span><span class="p">(</span><span class="n">gem</span><span class="p">,</span> <span class="s2">"= </span><span class="si">#{</span><span class="n">version</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<h4 id="header-4">Header 4</h4>
+
+<ul>
+  <li>This is an unordered list following a header.</li>
+  <li>This is an unordered list following a header.</li>
+  <li>This is an unordered list following a header.</li>
+</ul>
+
+<h5 id="header-5">Header 5</h5>
+
+<ol>
+  <li>This is an ordered list following a header.</li>
+  <li>This is an ordered list following a header.</li>
+  <li>This is an ordered list following a header.</li>
+</ol>
+
+<h6 id="header-6">Header 6</h6>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: left">head1</th>
+      <th style="text-align: left">head two</th>
+      <th style="text-align: left">three</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: left">ok</td>
+      <td style="text-align: left">good swedish fish</td>
+      <td style="text-align: left">nice</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">out of stock</td>
+      <td style="text-align: left">good and plenty</td>
+      <td style="text-align: left">nice</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">ok</td>
+      <td style="text-align: left">good <code class="language-plaintext highlighter-rouge">oreos</code></td>
+      <td style="text-align: left">hmm</td>
+    </tr>
+    <tr>
+      <td style="text-align: left">ok</td>
+      <td style="text-align: left">good <code class="language-plaintext highlighter-rouge">zoute</code> drop</td>
+      <td style="text-align: left">yumm</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="theres-a-horizontal-rule-below-this">There’s a horizontal rule below this.</h3>
+
+<hr />
+
+<h3 id="here-is-an-unordered-list">Here is an unordered list:</h3>
+
+<ul>
+  <li>Item foo</li>
+  <li>Item bar</li>
+  <li>Item baz</li>
+  <li>Item zip</li>
+</ul>
+
+<h3 id="and-an-ordered-list">And an ordered list:</h3>
+
+<ol>
+  <li>Item one</li>
+  <li>Item two</li>
+  <li>Item three</li>
+  <li>Item four</li>
+</ol>
+
+<h3 id="and-a-nested-list">And a nested list:</h3>
+
+<ul>
+  <li>level 1 item
+    <ul>
+      <li>level 2 item</li>
+      <li>level 2 item
+        <ul>
+          <li>level 3 item</li>
+          <li>level 3 item</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>level 1 item
+    <ul>
+      <li>level 2 item</li>
+      <li>level 2 item</li>
+      <li>level 2 item</li>
+    </ul>
+  </li>
+  <li>level 1 item
+    <ul>
+      <li>level 2 item</li>
+      <li>level 2 item</li>
+    </ul>
+  </li>
+  <li>level 1 item</li>
+</ul>
+
+<h3 id="small-image">Small image</h3>
+
+<p><img src="https://assets-cdn.github.com/images/icons/emoji/octocat.png" alt="" /></p>
+
+<h3 id="large-image">Large image</h3>
+
+<p><img src="https://guides.github.com/activities/hello-world/branching.png" alt="" /></p>
+
+<h3 id="definition-lists">Definition lists</h3>
+
+<dl>
+  <dt>Name</dt>
+  <dd>Godzilla</dd>
+  <dt>Born</dt>
+  <dd>1952</dd>
+  <dt>Birthplace</dt>
+  <dd>Japan</dd>
+  <dt>Color</dt>
+  <dd>Green</dd>
+</dl>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Long, single-line code blocks should not wrap. They should horizontally scroll if they are too long. This line should be long enough to demonstrate this. Or is it?
+</code></pre></div></div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>The final element.
+</code></pre></div></div>]]></content><author><name></name></author><summary type="html"><![CDATA[A page showing how regular markdown content is styled in Hydejack.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="http://localhost:4000/assets/img/blog/example-content-ii.jpg" /><media:content medium="image" url="http://localhost:4000/assets/img/blog/example-content-ii.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry></feed>

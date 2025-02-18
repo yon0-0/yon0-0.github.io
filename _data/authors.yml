@@ -2,34 +2,34 @@
 # Must be the same as `author` in `_config.yml`.
 # Change `author1` to your shortname.
 author1:
-  name:              <firstname> <lastname>
-  email:             <mail@domain.tld>
+  name:             
+  email:             
 
   # Used at the bottom of each page and at the top of the `about` layout
   # Markdown enabled, can use multiple paragraphs (enabled by `|`)
   about:             |
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit,
-    sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-    
-    Open `_data/authors.yml` to edit this text.
+    I’m an ambitious Information Technology student at the New York Institute of Technology with a strong passion for building secure and resilient digital environments. 
+    This spring, I’ll be graduating with a Bachelor's in Information Technology. By 2026, I’ll be earning my Master’s in Cybersecurity.
+    My focus lies in deploying secure networks and system configurations that not only protect but also enhance user experiences. 
+    Committed to continuous learning, I’m always exploring new ways to make technology safer and more efficient for everyone. 
+    I’m eager to apply my skills in real-world security challenges and contribute to strengthening digital systems.
 
   # This photo will be used in the about section
-  picture:
-    path:            https://via.placeholder.com/128x128
+  #picture:
+  #  path:            https://via.placeholder.com/128x128
     # srcset is optional, but can be used to provide higher res versions for retina displays
-    srcset:
-      1x:            https://via.placeholder.com/128x128
-      2x:            https://via.placeholder.com/256x256
+  #  srcset:
+   #   1x:            https://via.placeholder.com/128x128
+    #  2x:            https://via.placeholder.com/256x256
 
   # Social media icons in sidebar
   # Comment/uncommet to show/hide
   # Rearrange to change the order in which they appear
   # You can also provide an absolute URL (starting with https://) instead of usernames
   social:
-    twitter:         <username>
-    github:          <username>
-    # email:           <mail@domain.tld>
+    #twitter:         <username>
+    github:          https://github.com/yon0-0/homelab
+    email:           jonathanejikeme12@gmail.com
     # rss:             https://<url>/feed.xml
     # facebook:        <username>
     # google:          <number>
@@ -81,17 +81,4 @@ author1:
     # mastodon:        https://<url>
     # x:               <username>
 
-# Another author (optional)
-author2:
-  name:              <firtname> <lastname>
-  email:             <mail@domain.tld>
-  about:             |
-    Lorem ipsum dolor sit amet, consectetur adipiscing elit,
-    sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
 
-    Open `_data/authors.yml` to edit this text.
-
-  picture:           https://placehold.it/128x128
-  twitter:           <username>
-  github:            <username>
