@@ -57,7 +57,7 @@ menu:
   - title:  Portfolio
     url:  /portfolio/
   - title: Resume
-    url: /assets/resume.pdf
+    url: /assets/Resume.pdf
 
 # Add links to the footer.
 # Typically you'll want to link to your cookie- or privacy policy (if appliable), etc..
